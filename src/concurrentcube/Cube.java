@@ -80,14 +80,14 @@ public class Cube {
         }
 
         public String print(){
-            String result = "";
+            StringBuilder result = new StringBuilder();
             for(int row = 0; row < size; ++row){
                 for(int column = 0; column < size; ++column){
-                    result = result + colors[row][column];
+                    result.append(colors[row][column]);
                 }
             }
 
-            return result;
+            return result.toString();
         }
     }
 
@@ -251,13 +251,13 @@ public class Cube {
     public String show() throws InterruptedException {
         beforeShowing.run();
 
-        String result = "";
+        StringBuilder result = new StringBuilder();
         for(Wall w : walls){
-            result = result + w.print();
+            result.append(w.print());
         }
 
         afterShowing.run();
 
-        return result;
+        return result.toString();
     }
 }
