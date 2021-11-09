@@ -1,5 +1,8 @@
 package concurrentcube;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Vector;
 import java.util.function.BiConsumer;
 
 public class Cube {
@@ -17,6 +20,12 @@ public class Cube {
         public WrongParameterGiven(String details){
             super(details);
         }
+    }
+
+    private void my_error(Exception e){
+        System.out.println("ERROR ");
+        e.printStackTrace();
+        System.exit(1);
     }
 
     private class Wall{
@@ -44,39 +53,71 @@ public class Cube {
             }
         }
 
-        private void checkParameters(int row, int column) throws WrongParameterGiven{
-            if(row >= size){
+        private void checkParameter(int n) throws WrongParameterGiven {
+            if (n >= size) {
                 throw new WrongParameterGiven("Row too big");
             }
-            if(row < 0){
+            if (n < 0) {
                 throw new WrongParameterGiven("Row less than zero");
             }
-            if(column >= size){
-                throw new WrongParameterGiven("Column too big");
-            }
-            if(column < 0){
-                throw new WrongParameterGiven("Column less than zero");
-            }
         }
 
-        public int give(int row, int column) throws WrongParameterGiven{
-            checkParameters(row, column);
-
-            return colors[row][column];
+        private void checkParameters(int row, int column) throws WrongParameterGiven{
+            checkParameter(row);
+            checkParameter(column);
         }
 
-        public int change(int row, int column, int new_color)throws WrongParameterGiven{
-            checkParameters(row, column);
-            if(new_color < 0){
-                throw new WrongParameterGiven("Color less than zero");
-            }
-            if(new_color >= WALLS_AMOUNT){
-                throw new WrongParameterGiven("Color number too big");
+        public Vector<Integer> give_line(int coordinate, boolean row) throws WrongParameterGiven{
+            checkParameter(coordinate);
+
+            Vector<Integer> result = new Vector<>();
+
+            if(row){
+                for(int column = 0; column < size; ++column){
+                    result.add(colors[coordinate][column]);
+                }
+            } else{
+                for(int r = 0; r < size; ++r){
+                    result.add(colors[r][coordinate]);
+                }
             }
 
-            int old = colors[row][column];
-            colors[row][column] = new_color;
-            return old;
+            return result;
+        }
+
+        public Vector<Integer> change_line(int coordinate, Vector<Integer> new_line, boolean row)throws WrongParameterGiven{
+            checkParameter(coordinate);
+
+            Vector<Integer> result= give_line(coordinate, row);
+            if(row){
+                for(int column = 0; column < size; ++column){
+                    int new_color = new_line.get(column);
+
+                    if(new_color < 0){
+                        throw new WrongParameterGiven("Color less than zero");
+                    }
+                    if(new_color >= WALLS_AMOUNT){
+                        throw new WrongParameterGiven("Color number too big");
+                    }
+
+                    colors[coordinate][column] = new_color;
+                }
+            } else{
+                for(int r = 0; r < size; ++r){
+                    int new_color = new_line.get(r);
+
+                    if(new_color < 0){
+                        throw new WrongParameterGiven("Color less than zero");
+                    }
+                    if(new_color >= WALLS_AMOUNT){
+                        throw new WrongParameterGiven("Color number too big");
+                    }
+
+                    colors[r][coordinate] = new_color;
+                }
+            }
+
+            return result;
         }
 
         public String print(){
@@ -110,138 +151,165 @@ public class Cube {
             try {
                 walls[i]= new Wall(size, i);
             } catch (WrongParameterGiven e) {
-                e.printStackTrace();
+                my_error(e);
             }
         }
     }
 
     public void rotate(int side, int layer) throws InterruptedException {
         beforeRotation.accept(side, layer);
-        if(side == 0){
-            for(int j = 0; j < size; ++j){
-                int moving = 0;
-                try {
-                    moving = walls[1].give(layer, j);
-                } catch (WrongParameterGiven e) {
-                    e.printStackTrace();
-                }
-                int moved = moving;
-                for(int i = 4; i > 0; --i){
-                    try {
-                        moving = walls[i].change(layer, j, moved);
-                    } catch (WrongParameterGiven e) {
-                        e.printStackTrace();
-                    }
-                    moved = moving;
-                }
-            }
-        }
 
-        if(side == 5){
-            for(int j = 0; j < size; ++j){
-                int moving = 0;
+        if(side == 0){
+            Vector<Integer> moving = new Vector<>();
+            try {
+                moving = walls[1].give_line(layer, true);
+            } catch (WrongParameterGiven e) {
+                my_error(e);
+            }
+            Vector<Integer> moved = moving;
+
+            for(int i = 4; i > 0; --i) {
                 try {
-                    moving = walls[4].give(size - layer - 1, j);
+                    moving = walls[i].change_line(layer, moved, true);
                 } catch (WrongParameterGiven e) {
-                    e.printStackTrace();
+                    my_error(e);
                 }
-                int moved = moving;
-                for(int i = 1; i < 5; ++i){
-                    try {
-                        moving = walls[i].change(size - layer - 1, j, moved);
-                    } catch (WrongParameterGiven e) {
-                        e.printStackTrace();
-                    }
-                    moved = moving;
-                }
+                moved = moving;
             }
         }
 
         if(side == 1){
-            for(int j = 0; j < size; ++j){
-                int moving = 0;
-                try {
-                    moving = walls[0].give(j, layer);
-                } catch (WrongParameterGiven e) {
-                    e.printStackTrace();
-                }
-                int moved = moving;
-
-                int[] interesting_walls = {2, 5, 4, 0};
-                for(int i : interesting_walls){
-                    try {
-                        moving = walls[i].change(j, layer, moved);
-                    } catch (WrongParameterGiven e) {
-                        e.printStackTrace();
-                    }
-                    moved = moving;
-                }
+            Vector<Integer> moving = new Vector<>();
+            try {
+                moving = walls[0].give_line(layer, false);
+            } catch (WrongParameterGiven e) {
+                my_error(e);
             }
-        }
+            Vector<Integer> moved = moving;
 
-        if(side == 3){
-            for(int j = 0; j < size; ++j){
-                int moving = 0;
+            int[] interesting_walls = {2, 5, 4, 0};
+            for(int i : interesting_walls){
+                if(i == 4 || i == 0){
+                    Collections.reverse(moving);
+                }
                 try {
-                    moving = walls[0].give(j, size - layer - 1);
-                } catch (WrongParameterGiven e) {
-                    e.printStackTrace();
-                }
-                int moved = moving;
-
-                int[] interesting_walls = {4, 5, 2, 0};
-                for(int i : interesting_walls){
-                    try {
-                        moving = walls[i].change(j, size - layer - 1, moved);
-                    } catch (WrongParameterGiven e) {
-                        e.printStackTrace();
+                    if(i == 4){
+                        moving = walls[i].change_line(size - layer - 1, moved, false);
+                    } else{
+                        moving = walls[i].change_line(layer, moved, false);
                     }
-                    moved = moving;
+                } catch (WrongParameterGiven e) {
+                    my_error(e);
                 }
+                moved = moving;
             }
         }
 
         if(side == 2){
-            for(int j = 0; j < size; ++j){
-                int moving = 0;
-                try {
-                    moving = walls[0].give(size - layer - 1, j);
-                } catch (WrongParameterGiven e) {
-                    e.printStackTrace();
-                }
-                int moved = moving;
+            Vector<Integer> moving = new Vector<>();
+            try {
+                moving = walls[1].give_line(size - layer - 1, false);
+            } catch (WrongParameterGiven e) {
+                my_error(e);
+            }
+            Vector<Integer> moved = moving;
 
-                int[] interesting_walls = {3, 5, 1, 0};
-                for(int i : interesting_walls){
-                    try {
-                        moving = walls[i].change(size - layer - 1, j, moved);
-                    } catch (WrongParameterGiven e) {
-                        e.printStackTrace();
-                    }
-                    moved = moving;
+            int[] interesting_walls = {0, 3, 5, 1};
+            for(int i : interesting_walls){
+                if(i == 0 || i == 5){
+                    Collections.reverse(moving);
                 }
+                try {
+                    if(i == 0) {
+                        moving = walls[i].change_line(size - layer - 1, moved, true);
+                    } else if(i == 5){
+                        moving = walls[i].change_line(layer, moved, true);
+                    } else if(i == 3){
+                        moving = walls[i].change_line(layer, moved, false);
+                    } else if(i == 1){
+                        moving = walls[i].change_line(size - layer - 1, moved, false);
+                    }
+                } catch (WrongParameterGiven e) {
+                    my_error(e);
+                }
+                moved = moving;
+            }
+        }
+
+        if(side == 3){
+            Vector<Integer> moving = new Vector<>();
+            try {
+                moving = walls[0].give_line(size - layer - 1, false);
+            } catch (WrongParameterGiven e) {
+                my_error(e);
+            }
+            Vector<Integer> moved = moving;
+
+            int[] interesting_walls = {4, 5, 2, 0};
+            for(int i : interesting_walls){
+                if(i == 4 || i == 5){
+                    Collections.reverse(moving);
+                }
+                try {
+                    if(i == 4){
+                        moving = walls[i].change_line(layer, moved, false);
+                    } else{
+                        moving = walls[i].change_line(size - layer - 1, moved, false);
+                    }
+                } catch (WrongParameterGiven e) {
+                    my_error(e);
+                }
+                moved = moving;
             }
         }
 
         if(side == 4){
-            for(int j = 0; j < size; ++j){
-                int moving = 0;
-                try {
-                    moving = walls[0].give(layer, j);
-                } catch (WrongParameterGiven e) {
-                    e.printStackTrace();
-                }
-                int moved = moving;
+            Vector<Integer> moving = new Vector<>();
+            try {
+                moving = walls[1].give_line(layer, false);
+            } catch (WrongParameterGiven e) {
+                my_error(e);
+            }
+            Vector<Integer> moved = moving;
 
-                int[] interesting_walls = {1, 5, 3, 0};
-                for(int i : interesting_walls){
-                    try {
-                        moving = walls[i].change(layer, j, moved);
-                    } catch (WrongParameterGiven e) {
-                        e.printStackTrace();
-                    }
-                    moved = moving;
+            int[] interesting_walls = {5, 3, 0, 1};
+            for(int i : interesting_walls){
+                if(i == 3 || i == 1){
+                    Collections.reverse(moving);
                 }
+                try {
+                    if(i == 5) {
+                        moving = walls[i].change_line(size - layer - 1, moved, true);
+                    } else if(i == 0){
+                        moving = walls[i].change_line(layer, moved, true);
+                    } else if(i == 1){
+                        moving = walls[i].change_line(layer, moved, false);
+                    } else if(i == 3){
+                        moving = walls[i].change_line(size - layer - 1, moved, false);
+                    }
+                } catch (WrongParameterGiven e) {
+                    my_error(e);
+                }
+                moved = moving;
+            }
+        }
+
+        if(side == 5){
+            Vector<Integer> moving = new Vector<>();
+            try {
+                moving = walls[4].give_line(size - layer - 1, true);
+            } catch (WrongParameterGiven e) {
+                my_error(e);
+            }
+            Vector<Integer> moved = moving;
+
+            for(int i = 1; i < 5; ++i) {
+                try {
+                    moving = walls[i].change_line(size - layer - 1, moved, true);
+                } catch (WrongParameterGiven e) {
+                    my_error(e);
+                }
+                moved = moving;
             }
         }
 
