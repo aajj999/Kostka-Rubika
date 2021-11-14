@@ -23,8 +23,12 @@ public class Cube {
     }
 
     private void my_error(Exception e){
-        System.out.println("ERROR ");
+        System.out.println("ERROR");
         e.printStackTrace();
+    }
+
+    private void outside_error(String m){
+        System.out.println(m);
         System.exit(1);
     }
 
@@ -40,7 +44,7 @@ public class Cube {
                 throw new WrongParameterGiven("Side less than zero");
             }
             if(side >=  WALLS_AMOUNT){
-                throw new WrongParameterGiven("Side number to big");
+                throw new WrongParameterGiven("Side number too big");
             }
 
             this.size = size;
@@ -55,10 +59,10 @@ public class Cube {
 
         private void checkParameter(int n) throws WrongParameterGiven {
             if (n >= size) {
-                throw new WrongParameterGiven("Row too big");
+                throw new WrongParameterGiven("Row or column too big");
             }
             if (n < 0) {
-                throw new WrongParameterGiven("Row less than zero");
+                throw new WrongParameterGiven("Row or column less than zero");
             }
         }
 
@@ -130,6 +134,35 @@ public class Cube {
 
             return result.toString();
         }
+
+        public void rotate_right(){
+            if(size == 1){
+                return;
+            }
+
+            int[][] after = new int[size][size];
+            for (int r = 0; r < size; r++){
+                for (int c = 0; c < size; c++){
+                    after[c][size - r - 1] = colors[r][c];
+                }
+            }
+            colors = after;
+        }
+
+        public void rotate_left(){
+            if(size == 1){
+                return;
+            }
+
+            int[][] after = new int[size][size];
+            for(int r = 0; r < size; r++){
+                for(int c = 0; c < size; c++)
+                {
+                    after[size - c - 1][r] = colors[r][c];
+                }
+            }
+            colors = after;
+        }
     }
 
     public Cube(int size,
@@ -138,7 +171,7 @@ public class Cube {
                 Runnable beforeShowing,
                 Runnable afterShowing) {
         if(size < 0){
-            System.out.println("Size of the cube can't be less than zero");
+            outside_error("Size has to be bigger than 0");
         }
 
         this.size = size;
@@ -157,7 +190,48 @@ public class Cube {
     }
 
     public void rotate(int side, int layer) throws InterruptedException {
+        if(side < 0){
+            outside_error("Side number less than 0");
+        }
+        if(side >= WALLS_AMOUNT){
+            outside_error("Too big side number");
+        }
+        if(layer < 0){
+            outside_error("Layer number less than 0");
+        }
+        if(layer >= size){
+            outside_error("Too big layer number");
+        }
+
         beforeRotation.accept(side, layer);
+        if(layer == 0){
+            walls[side].rotate_right();
+        }
+        if(layer == size - 1){
+            int to_rotate = 0;
+            switch(side){
+                case 0:
+                    to_rotate = 5;
+                    break;
+                case 1:
+                    to_rotate = 3;
+                    break;
+                case 2:
+                    to_rotate = 4;
+                    break;
+                case 3:
+                    to_rotate = 1;
+                    break;
+                case 4:
+                    to_rotate = 2;
+                    break;
+                case 5:
+                    to_rotate = 0;
+                    break;
+            }
+
+            walls[to_rotate].rotate_left();
+        }
 
         if(side == 0){
             Vector<Integer> moving = new Vector<>();
