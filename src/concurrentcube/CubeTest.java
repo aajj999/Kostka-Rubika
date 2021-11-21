@@ -1,10 +1,15 @@
 package concurrentcube;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.function.BiConsumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CubeTest {
+    private final int WALLS = 6;
+
     @org.junit.jupiter.api.Test
         //Test show method for primary cube
     void show() {
@@ -49,9 +54,11 @@ class CubeTest {
 
         try {
             cube.rotate(4, 0);
+            cube.rotate(3, 0);
+            cube.rotate(0, 0);
             String new_cube = cube.show();
 
-            assert(new_cube.equals("302541"));
+            assert(new_cube.equals("215304"));
             ok();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -208,38 +215,48 @@ class CubeTest {
     }
 
     @org.junit.jupiter.api.Test
-        //Test two concurrent rotations
+        //Light test for two rotating threads
     void rotateConcurrently0() {
         begin("rotateConcurrently0");
 
-        Cube cube = new Cube(3, new nothing(), new nothing(), new nothing(), new nothing());
+        int size = 3;
+        Cube cube = new Cube(size, new nothing(), new nothing(), new nothing(), new nothing());
 
-        Thread rotate1 = new Thread(() -> {
-            try {
-                cube.rotate(0, 0);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        });
+        List<Thread> threads = new ArrayList<>();
+        for(int j = 0; j < 25; ++j){
+            threads.add(new Thread(() -> {
+                try {
+                    for(int i = 0; i < 1000; ++i) {
+                        String description = null;
+                        description = cube.show();
+                        assert(countOccurrences(description, size));
+                        Random random = new Random();
+                        int side = random.nextInt(WALLS);
+                        int layer = random.nextInt(size);
+                        cube.rotate(side, layer);
+                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }));
+        }
 
-        Thread rotate2 = new Thread(() -> {
-            try {
-                cube.rotate(1, 1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        });
-
-        rotate1.run();
-        rotate2.run();
         String new_cube = null;
+
+        for(Thread thread : threads){
+            thread.run();
+        }
+
         try {
             new_cube = cube.show();
+            for(Thread thread : threads){
+                thread.join();
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        assert(new_cube.equals("040040010222111111303202202444333333151454454535525525") || new_cube.equals("000444000202111111333202202454333333111454454525525525"));
+        assert(countOccurrences(new_cube, size));
         ok();
     }
 
@@ -251,6 +268,25 @@ class CubeTest {
         @Override
         public void accept(Integer integer, Integer integer2) {}
     };
+
+    private boolean countOccurrences(String combination, int size){
+        int count = 0;
+
+        for(int color = 0; color < WALLS; ++color) {
+            for (int i = 0; i < combination.length(); i++) {
+                if (Character.getNumericValue(combination.charAt(i)) == color) {
+                    count++;
+                }
+            }
+
+            if(count != size * size){
+                System.out.println(count);
+                return false;
+            }
+            count = 0;
+        }
+        return true;
+    }
 
     private void begin(String name){
         System.out.println("Test '" + name + "' starts");
