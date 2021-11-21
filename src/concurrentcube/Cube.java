@@ -204,6 +204,7 @@ public class Cube {
         }
 
         beforeRotation.accept(side, layer);
+
         if(layer == 0){
             walls[side].rotate_right();
         }

@@ -219,14 +219,15 @@ class CubeTest {
     void rotateConcurrently0() {
         begin("rotateConcurrently0");
 
-        int size = 3;
+        int size = 10;
         Cube cube = new Cube(size, new nothing(), new nothing(), new nothing(), new nothing());
 
         List<Thread> threads = new ArrayList<>();
-        for(int j = 0; j < 25; ++j){
+        for(int j = 0; j < 50; ++j){
             threads.add(new Thread(() -> {
                 try {
-                    for(int i = 0; i < 1000; ++i) {
+                    for(int i = 0; i < 10000; ++i) {
+                        System.out.println(i);
                         String description = null;
                         description = cube.show();
                         assert(countOccurrences(description, size));
@@ -241,14 +242,11 @@ class CubeTest {
             }));
         }
 
-        String new_cube = null;
-
         for(Thread thread : threads){
-            thread.run();
+            thread.start();
         }
 
         try {
-            new_cube = cube.show();
             for(Thread thread : threads){
                 thread.join();
             }
@@ -256,6 +254,12 @@ class CubeTest {
             e.printStackTrace();
         }
 
+        String new_cube = null;
+        try {
+            new_cube = cube.show();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         assert(countOccurrences(new_cube, size));
         ok();
     }
@@ -280,7 +284,6 @@ class CubeTest {
             }
 
             if(count != size * size){
-                System.out.println(count);
                 return false;
             }
             count = 0;
