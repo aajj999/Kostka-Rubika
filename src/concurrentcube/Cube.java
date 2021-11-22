@@ -16,6 +16,10 @@ public class Cube {
     private final Runnable beforeShowing;
     private final Runnable afterShowing;
 
+    boolean x;
+    boolean y;
+    boolean z;
+
     private class WrongParameterGiven  extends Exception{
         public WrongParameterGiven(String details){
             super(details);
@@ -165,6 +169,35 @@ public class Cube {
         }
     }
 
+    private synchronized void lock(boolean x, boolean y, boolean z) throws InterruptedException {
+        while(x && !this.x){
+            wait();
+        }
+        this.x = false;
+
+        while(y && !this.y){
+            wait();
+        }
+        this.y = false;
+
+        while(z && !this.z){
+            wait();
+        }
+        this.z = false;
+    }
+
+    private synchronized void unlock(boolean x, boolean y, boolean z) throws InterruptedException {
+        if(x){
+            this.x = true;
+        }
+        if(y){
+            this.x = true;
+        }
+        if(z){
+            this.x = true;
+        }
+    }
+
     public Cube(int size,
                 BiConsumer<Integer, Integer> beforeRotation,
                 BiConsumer<Integer, Integer> afterRotation,
@@ -179,6 +212,10 @@ public class Cube {
         this.afterRotation = afterRotation;
         this.beforeShowing = beforeShowing;
         this.afterShowing = afterShowing;
+
+        this.x = true;
+        this.y = true;
+        this.z = true;
 
         for(int i = 0; i < WALLS_AMOUNT; ++i){
             try {
@@ -204,6 +241,15 @@ public class Cube {
         }
 
         beforeRotation.accept(side, layer);
+
+        if(side == 0 || side == 5){
+            lock(true, false, true);
+        } else if(side == 1 || side == 3){
+            lock(false, true, true);
+        } else{
+            lock(true, true, false);
+        }
+
         if(layer == 0){
             walls[side].rotate_right();
         }
@@ -387,16 +433,28 @@ public class Cube {
             }
         }
 
+        if(side == 0 || side == 5){
+            unlock(true, false, true);
+        } else if(side == 1 || side == 3){
+            unlock(false, true, true);
+        } else{
+            unlock(true, true, false);
+        }
+
         afterRotation.accept(side, layer);
     }
 
     public String show() throws InterruptedException {
         beforeShowing.run();
 
+        lock(true, true, true);
+
         StringBuilder result = new StringBuilder();
         for(Wall w : walls){
             result.append(w.print());
         }
+
+        unlock(true, true, true);
 
         afterShowing.run();
 
