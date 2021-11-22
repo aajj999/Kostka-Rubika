@@ -155,9 +155,9 @@ class CubeTest {
         begin("wrongParameters0");
 
         Cube cube = new Cube(-2, new nothing(), new nothing(), new nothing(), new nothing());
-    }*/
+    }
 
-    /*@org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.Test
         //Test rotating too big layer number - test should break
     void wrongParameters1() {
         begin("wrongParameters1");
@@ -169,9 +169,9 @@ class CubeTest {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-    }*/
+    }
 
-    /*@org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.Test
         //Test rotating too big side number - test should break
     void wrongParameters2() {
         begin("wrongParameters2");
