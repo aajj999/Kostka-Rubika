@@ -7,6 +7,9 @@ import java.util.Vector;
 import java.util.function.BiConsumer;
 
 public class Cube {
+    boolean x = true;
+    boolean y = true;
+    boolean z = true;
 
     private final int WALLS_AMOUNT = 6;
     private final int size;
@@ -16,8 +19,6 @@ public class Cube {
     private final BiConsumer<Integer, Integer> afterRotation;
     private final Runnable beforeShowing;
     private final Runnable afterShowing;
-    
-    private final Block block;
 
     public Cube(int size,
                 BiConsumer<Integer, Integer> beforeRotation,
@@ -33,8 +34,6 @@ public class Cube {
         this.afterRotation = afterRotation;
         this.beforeShowing = beforeShowing;
         this.afterShowing = afterShowing;
-
-        block = new Block();
 
         for(int i = 0; i < WALLS_AMOUNT; ++i){
             try {
@@ -59,15 +58,15 @@ public class Cube {
             Errors.outside_error("Too big layer number");
         }
 
-        beforeRotation.accept(side, layer);
-
         if(side == 0 || side == 5){
-            Block.lock(true, false, true);
+            lock(true, false, true);
         } else if(side == 1 || side == 3){
-            Block.lock(false, true, true);
+            lock(false, true, true);
         } else{
-            Block.lock(true, true, false);
+            lock(true, true, false);
         }
+
+        beforeRotation.accept(side, layer);
 
         if(layer == 0){
             walls[side].rotate_right();
@@ -254,31 +253,112 @@ public class Cube {
             }
         }
 
-        if(side == 0 || side == 5){
-            Block.unlock(true, false, true);
-        } else if(side == 1 || side == 3){
-            Block.unlock(false, true, true);
-        } else{
-            Block.unlock(true, true, false);
-        }
-
         afterRotation.accept(side, layer);
+
+        if(side == 0 || side == 5){
+            unlock(true, false, true);
+        } else if(side == 1 || side == 3){
+            unlock(false, true, true);
+        } else{
+            unlock(true, true, false);
+        }
     }
 
     public String show() throws InterruptedException {
+        lock(true, true, true);
+        
         beforeShowing.run();
-
-        Block.lock(true, true, true);
 
         StringBuilder result = new StringBuilder();
         for(Wall w : walls){
             result.append(w.print());
         }
 
-        Block.unlock(true, true, true);
-
         afterShowing.run();
 
+        unlock(true, true, true);
+
         return result.toString();
+    }
+
+    private synchronized void plock(String message){
+        //System.out.println(message);
+        //System.out.println("   " + x + " " + y + " " + z);
+        //System.out.println("");
+    }
+
+    private synchronized void lock(boolean x, boolean y, boolean z) throws InterruptedException {
+        plock("lock");
+        boolean x_changed = false;
+        boolean y_changed = false;
+        boolean z_changed = false;
+
+        try {
+            if (x) {
+                while (!this.x) {
+                    wait();
+                }
+                this.x = false;
+                x_changed = true;
+            }
+
+            if (y) {
+                while (!this.y) {
+                    wait();
+                }
+                this.y = false;
+                y_changed = true;
+            }
+
+            if (z) {
+                while (!this.z) {
+                    wait();
+                }
+                this.z = false;
+                z_changed = true;
+            }
+
+            Thread current = Thread.currentThread();
+            if(current.isInterrupted()) {
+                throw new InterruptedException();
+            }
+
+        } catch(InterruptedException e){
+            if(x_changed){
+                this.x = true;
+            }
+            if(y_changed){
+                this.y = true;
+            }
+            if(z_changed){
+                this.z = true;
+            }
+
+            throw new InterruptedException();
+        }
+
+        plock("po lock");
+    }
+
+    private synchronized void unlock(boolean x, boolean y, boolean z) throws InterruptedException {
+        plock("unlock");
+        if(x){
+            this.x = true;
+        }
+        if(y){
+            this.y = true;
+        }
+        if(z){
+            this.z = true;
+        }
+
+        notifyAll();
+
+        Thread current = Thread.currentThread();
+        if(current.isInterrupted()){
+            throw new InterruptedException();
+        }
+
+        plock("po unlock");
     }
 }
