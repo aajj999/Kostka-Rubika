@@ -2,6 +2,7 @@ package my_help;
 
 public class Errors {
     public static class WrongParameterGiven  extends Exception{
+        private static final long serialVersionUID = 222;
         public WrongParameterGiven(String details){
             super(details);
         }
