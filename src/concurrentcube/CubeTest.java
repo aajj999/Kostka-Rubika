@@ -2,12 +2,21 @@ package concurrentcube;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 
 class CubeTest {
     private final int WALLS = 6;
+    private final int TEST_RUNS = 10;
+    private final int THREAD_REPEAT = 500;
+    private final int THREADS_AMOUNT = 50;
+
+    private static final AtomicInteger counter = new AtomicInteger(0);
+    private static final AtomicInteger counter2 = new AtomicInteger(0);
+
+    private List<List<Integer>> moves;
 
     @org.junit.jupiter.api.Test
         //Test show method for primary cube
@@ -18,8 +27,8 @@ class CubeTest {
 
         try {
             String new_cube = cube.show();
-
-            assert(new_cube.equals("000000000111111111222222222333333333444444444555555555"));
+            boolean to_check = new_cube.equals("000000000111111111222222222333333333444444444555555555");
+            assert(to_check);
             ok();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -37,7 +46,8 @@ class CubeTest {
             cube.rotate(4, 2);
             String new_cube = cube.show();
 
-            assert(new_cube.equals("000000333110110110222222222533533533444444444111555555"));
+            boolean to_check = new_cube.equals("000000333110110110222222222533533533444444444111555555");
+            assert(to_check);
             ok();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -57,7 +67,8 @@ class CubeTest {
             cube.rotate(0, 0);
             String new_cube = cube.show();
 
-            assert(new_cube.equals("215304"));
+            boolean to_check = new_cube.equals("215304");
+            assert(to_check);
             ok();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -76,7 +87,8 @@ class CubeTest {
             cube.rotate(4, 2);
             String new_cube = cube.show();
 
-            assert(new_cube.equals("000000343110220110232232232533544533444111444121555555"));
+            boolean to_check = new_cube.equals("000000343110220110232232232533544533444111444121555555");
+            assert(to_check);
             ok();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -103,7 +115,8 @@ class CubeTest {
             cube.rotate(1, 0);
             String new_cube = cube.show();
 
-            assert(new_cube.equals("305143451" + "051205451" + "035432044" + "203053513" + "244211245" + "233220110"));
+            boolean to_check = new_cube.equals("305143451" + "051205451" + "035432044" + "203053513" + "244211245" + "233220110");
+            assert(to_check);
             ok();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -141,7 +154,29 @@ class CubeTest {
             cube.rotate(1, 2);
             String new_cube = cube.show();
 
-            assert(new_cube.equals("000000000111111111222222222333333333444444444555555555"));
+            boolean to_check = new_cube.equals("000000000111111111222222222333333333444444444555555555");
+            assert(to_check);
+            ok();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+        //One more test to see if I understand well the order of blocks
+    void rotate5() {
+        begin("rotate5");
+
+        Cube cube = new Cube(3, new nothing(), new nothing(), new nothing(), new nothing());
+
+        try {
+            cube.rotate(2, 0);
+            cube.rotate(3, 0);
+            cube.rotate(4, 1);
+            String new_cube = cube.show();
+
+            boolean to_check = new_cube.equals("002033112125105105223225225040353353144044044334111554");
+            assert(to_check);
             ok();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -218,28 +253,32 @@ class CubeTest {
     void rotateConcurrently0() {
         begin("rotateConcurrently0");
 
-        int size = 10;
-        Cube cube = new Cube(size, new nothing(), new nothing(), new nothing(), new nothing());
+        for(int test_run = 0; test_run < TEST_RUNS; ++ test_run) {
 
-        List<Thread> threads = new ArrayList<>();
-        for(int j = 0; j < 50; ++j){
-            threads.add(new Thread(() -> {
-                try {
-                    for(int i = 0; i < 10000; ++i) {
-                        String description = cube.show();
-                        assert(countOccurrences(description, size));
-                        Random random = new Random();
-                        int side = random.nextInt(WALLS);
-                        int layer = random.nextInt(size);
-                        cube.rotate(side, layer);
+            int size = 4;
+            Cube cube = new Cube(size, new nothing(), new nothing(), new nothing(), new nothing());
+
+            List<Thread> threads = new ArrayList<>();
+            for (int j = 0; j < THREADS_AMOUNT; ++j) {
+                threads.add(new Thread(() -> {
+                    try {
+                        for (int i = 0; i < THREAD_REPEAT; ++i) {
+                            String description = cube.show();
+                            boolean to_check = countOccurrences(description, size);
+                            assert(to_check);
+                            Random random = new Random();
+                            int side = random.nextInt(WALLS);
+                            int layer = random.nextInt(size);
+                            cube.rotate(side, layer);
+                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
                     }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }));
-        }
+                }));
+            }
 
-        run_threads(size, cube, threads);
+            run_threads(size, cube, threads);
+        }
     }
 
     @org.junit.jupiter.api.Test
@@ -247,83 +286,235 @@ class CubeTest {
     void rotateConcurrently1() {
         begin("rotateConcurrently1");
 
-        int size = 10;
-        Cube cube = new Cube(size, new nothing(), new nothing(), new nothing(), new nothing());
+        for(int test_run = 0; test_run < TEST_RUNS; ++ test_run) {
 
-        List<Thread> threads = new ArrayList<>();
-        for(int j = 0; j < 50; ++j){
-            threads.add(new Thread(() -> {
-                try {
-                    for(int i = 0; i < 10000; ++i) {
-                        String description = cube.show();
-                        assert(countOccurrences(description, size));
-                        cube.rotate(3, 0);
-                    }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+            int size = 4;
+            Cube cube = new Cube(size, new nothing(), new nothing(), new nothing(), new nothing());
+
+            List<Thread> threads = new ArrayList<>();
+            Random random = new Random();
+            int side = random.nextInt(WALLS);
+            int layer = random.nextInt(size);
+            final int side2;
+            switch(side){
+                case 0:
+                    side2 = 5;
+                    break;
+                case 1:
+                    side2 = 3;
+                    break;
+                case 2:
+                    side2 = 4;
+                    break;
+                case 3:
+                    side2 = 1;
+                    break;
+                case 4:
+                    side2 = 2;
+                    break;
+                default:
+                    side2 = 0;
+                    break;
+            }
+            int layer2 = size - layer - 1;
+            for (int j = 0; j < THREADS_AMOUNT; ++j) {
+                if(j % 2 == 0) {
+                    threads.add(new Thread(() -> {
+                        try {
+                            for (int i = 0; i < THREAD_REPEAT; ++i) {
+                                String description = cube.show();
+                                boolean to_check = countOccurrences(description, size);
+                                assert (to_check);
+                                cube.rotate(side, layer);
+                            }
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }));
+                } else{
+                    threads.add(new Thread(() -> {
+                        try {
+                            for (int i = 0; i < THREAD_REPEAT; ++i) {
+                                String description = cube.show();
+                                boolean to_check = countOccurrences(description, size);
+                                assert (to_check);
+                                cube.rotate(side2, layer2);
+                            }
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }));
                 }
-            }));
-        }
+            }
 
-        run_threads(size, cube, threads);
+            run_threads(size, cube, threads);
+        }
     }
 
     @org.junit.jupiter.api.Test
         //Test for interrupted threads
     void rotateConcurrently2() {
         begin("rotateConcurrently2");
+        for(int test_run = 0; test_run < TEST_RUNS; ++ test_run) {
 
-        AtomicInteger count_exceptions = new AtomicInteger(0);
+            AtomicInteger count_exceptions = new AtomicInteger(0);
 
-        int size = 10;
-        Cube cube = new Cube(size, new nothing(), new nothing(), new nothing(), new nothing());
+            int size = 4;
+            Cube cube = new Cube(size, new before(), new after(), new before(), new after());
 
-        List<Thread> threads = new ArrayList<>();
-        for(int j = 0; j < 50; ++j){
-            threads.add(new Thread(() -> {
-                try {
-                    for(int i = 0; i < 10000; ++i) {
-                        String description = cube.show();
-                        assert(countOccurrences(description, size));
-                        Random random = new Random();
-                        int side = random.nextInt(WALLS);
-                        int layer = random.nextInt(size);
-                        cube.rotate(side, layer);
+            List<Thread> threads = new ArrayList<>();
+            for (int j = 0; j < THREADS_AMOUNT; ++j) {
+                threads.add(new Thread(() -> {
+                    try {
+                        for (int i = 0; i < THREAD_REPEAT; ++i) {
+                            String description = cube.show();
+                            boolean my_check = countOccurrences(description, size);
+                            assert(my_check);
+                            Random random = new Random();
+                            int side = random.nextInt(WALLS);
+                            int layer = random.nextInt(size);
+                            cube.rotate(side, layer);
+                        }
+                    } catch (InterruptedException e) {
+                        count_exceptions.getAndIncrement();
                     }
-                } catch (InterruptedException e) {
-                    count_exceptions.getAndIncrement();
-                }
-            }));
-        }
-
-        for(Thread thread : threads){
-            thread.start();
-        }
-
-        int threads_interrupted = 25;
-
-        for(int i = 0; i < threads_interrupted; ++i){
-            threads.get(i).interrupt();
-        }
-
-        try {
-            for(Thread thread : threads){
-                thread.join();
+                }));
             }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
 
-        assert(count_exceptions.get() == threads_interrupted);
+            int threads_interrupted = 25;
 
-        String new_cube = null;
-        try {
-            new_cube = cube.show();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+            for (Thread thread : threads) {
+                thread.start();
+            }
+
+            for (int i = 0; i < threads_interrupted; ++i) {
+                threads.get(i).interrupt();
+            }
+
+            try {
+                for (Thread thread : threads) {
+                    thread.join();
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            assert(count_exceptions.get() == threads_interrupted);
+
+            String new_cube = null;
+            try {
+                new_cube = cube.show();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            boolean to_check = countOccurrences(new_cube, size);
+            assert(to_check);
+
+            assert(counter.get() == 0);
+            assert(counter2.get() == 0);
+
+            ok();
         }
-        assert(countOccurrences(new_cube, size));
-        ok();
+    }
+
+    @org.junit.jupiter.api.Test
+        //Precise test for concurrently rotating threads
+    void rotateConcurrently3() {
+        begin("rotateConcurrently3");
+        moves = new ArrayList<>();
+        int size = 3;
+
+        for(int test_run = 0; test_run < TEST_RUNS; ++ test_run) {
+            moves.clear();
+            Cube cube = new Cube(size, new register(), new nothing(), new nothing(), new nothing());
+
+            List<Thread> threads = new ArrayList<>();
+            for (int j = 0; j < 20; ++j) {
+                threads.add(new Thread(() -> {
+                    try {
+                        for (int i = 0; i < 100; ++i) {
+                            Random random = new Random();
+                            int side = random.nextInt(WALLS);
+                            int layer = random.nextInt(size);
+                            cube.rotate(side, layer);
+                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }));
+            }
+
+            for(Thread thread : threads){
+                thread.start();
+            }
+
+            try {
+                for(Thread thread : threads){
+                    thread.join();
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            String new_cube = null;
+            try {
+                new_cube = cube.show();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            Cube cube_one_thread = new Cube(size, new nothing(), new nothing(), new nothing(), new nothing());
+
+            for(List<Integer> move : moves){
+                try {
+                    cube_one_thread.rotate(move.get(0), move.get(1));
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            String new_cube_one = null;
+            try {
+                new_cube_one = cube_one_thread.show();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            assert(Objects.equals(new_cube, new_cube_one));
+            ok();
+
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+        //Precise test for concurrently rotating threads
+    void rotateConcurrently4() {
+        begin("rotateConcurrently4");
+
+        for(int test_run = 0; test_run < TEST_RUNS; ++ test_run) {
+            int size = 3;
+
+            Cube cube = new Cube(size, new nothing(), new nothing(), new nothing(), new nothing());
+
+            List<Thread> threads = new ArrayList<>();
+            for (int j = 0; j < 20; ++j) {
+                threads.add(new Thread(() -> {
+                    try {
+                        for (int i = 0; i < 1; ++i) {
+                            Random random = new Random();
+                            int side = random.nextInt(WALLS);
+                            int layer = random.nextInt(size);
+                            cube.rotate(side, layer);
+                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }));
+            }
+
+            run_threads(size, cube, threads);
+        }
     }
 
     private void run_threads(int size, Cube cube, List<Thread> threads) {
@@ -345,8 +536,45 @@ class CubeTest {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        assert(countOccurrences(new_cube, size));
+        boolean to_check = countOccurrences(new_cube, size);
+        assert(to_check);
         ok();
+    }
+
+    private class register implements BiConsumer<Integer, Integer>{
+
+        @Override
+        public void accept(Integer side, Integer layer) {
+            List<Integer> move = new ArrayList<>();
+            move.add(side);
+            move.add(layer);
+            moves.add(move);
+        }
+    }
+
+    private static class before implements Runnable, BiConsumer<Integer, Integer>{
+
+        @Override
+        public void run() {
+            counter.getAndIncrement();
+        }
+
+        @Override
+        public void accept(Integer integer, Integer integer2) {
+            counter2.getAndIncrement();
+        }
+    }
+    private static class after implements Runnable, BiConsumer<Integer, Integer>{
+
+        @Override
+        public void run() {
+            counter.getAndDecrement();
+        }
+
+        @Override
+        public void accept(Integer integer, Integer integer2) {
+            counter2.getAndDecrement();
+        }
     }
 
     private static class nothing implements Runnable, BiConsumer<Integer, Integer> {

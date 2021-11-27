@@ -55,6 +55,7 @@ public class Wall{
         return result;
     }
 
+    //Receives a row or column from the last cube's wall and inserts it to this wall while returning the old row or column that is exchanged
     public Vector<Integer> change_line(int coordinate, Vector<Integer> new_line, boolean row)throws Errors.WrongParameterGiven {
         checkParameter(coordinate);
 
@@ -101,6 +102,7 @@ public class Wall{
         return result.toString();
     }
 
+    //rotates the whole wall 90 degrees clockwise
     public void rotate_right(){
         if(size == 1){
             return;
@@ -115,6 +117,7 @@ public class Wall{
         colors = after;
     }
 
+    //rotates whole wall 90 degrees anti-clockwise
     public void rotate_left(){
         if(size == 1){
             return;

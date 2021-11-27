@@ -2,15 +2,10 @@ package concurrentcube;
 
 import my_help.*;
 
-import java.util.Collections;
-import java.util.Vector;
+import java.util.*;
 import java.util.function.BiConsumer;
 
 public class Cube {
-    boolean x = true;
-    boolean y = true;
-    boolean z = true;
-
     private final int WALLS_AMOUNT = 6;
     private final int size;
     private final Wall[] walls = new Wall[WALLS_AMOUNT];
@@ -19,6 +14,13 @@ public class Cube {
     private final BiConsumer<Integer, Integer> afterRotation;
     private final Runnable beforeShowing;
     private final Runnable afterShowing;
+
+    private final int axis_amount = 4;
+    private final int[] waiting = new int[axis_amount];
+    private final int[] working = new int[axis_amount];
+    private final boolean[] can_start = new boolean[axis_amount];
+    private final List<Set<Integer>> layers = new ArrayList<>();
+    private int which_axis;
 
     public Cube(int size,
                 BiConsumer<Integer, Integer> beforeRotation,
@@ -42,6 +44,15 @@ public class Cube {
                 Errors.my_error(e);
             }
         }
+
+        for(int i = 0; i < axis_amount; ++ i){
+            waiting[i] = 0;
+            working[i] = 0;
+            can_start[i] = false;
+            layers.add(new HashSet<>());
+        }
+        
+        which_axis = -1;
     }
 
     public void rotate(int side, int layer) throws InterruptedException {
@@ -58,12 +69,25 @@ public class Cube {
             Errors.outside_error("Too big layer number");
         }
 
-        if(side == 0 || side == 5){
-            lock(true, false, true);
-        } else if(side == 1 || side == 3){
-            lock(false, true, true);
-        } else{
-            lock(true, true, false);
+        switch(side){
+            case 0:
+                lock(1, layer);
+                break;
+            case 1:
+                lock(0, layer);
+                break;
+            case 2:
+                lock(2, layer);
+                break;
+            case 3:
+                lock(0, size - layer - 1);
+                break;
+            case 4:
+                lock(2, size - layer - 1);
+                break;
+            case 5:
+                lock(1, size - layer - 1);
+                break;
         }
 
         beforeRotation.accept(side, layer);
@@ -255,17 +279,30 @@ public class Cube {
 
         afterRotation.accept(side, layer);
 
-        if(side == 0 || side == 5){
-            unlock(true, false, true);
-        } else if(side == 1 || side == 3){
-            unlock(false, true, true);
-        } else{
-            unlock(true, true, false);
+        switch(side){
+            case 0:
+                unlock(1, layer);
+                break;
+            case 1:
+                unlock(0, layer);
+                break;
+            case 2:
+                unlock(2, layer);
+                break;
+            case 3:
+                unlock(0, size - layer - 1);
+                break;
+            case 4:
+                unlock(2, size - layer - 1);
+                break;
+            case 5:
+                unlock(1, size - layer - 1);
+                break;
         }
     }
 
     public String show() throws InterruptedException {
-        lock(true, true, true);
+        lock(3, (int) Thread.currentThread().getId());
         
         beforeShowing.run();
 
@@ -276,89 +313,104 @@ public class Cube {
 
         afterShowing.run();
 
-        unlock(true, true, true);
+        unlock(3, (int) Thread.currentThread().getId());
 
         return result.toString();
     }
 
+        //Only for debug print at the beginning s and end of locks an unlocks
     private synchronized void plock(String message){
-        //System.out.println(message);
-        //System.out.println("   " + x + " " + y + " " + z);
-        //System.out.println("");
+        /*System.out.println("=====" + message);
+        System.out.println("waiting: " + waiting[0] + " " + waiting[1] + " " + waiting[2] + " " + waiting[3]);
+        System.out.println("working: " + working[0] + " " + working[1] + " " + working[2] + " " + working[3]);
+        System.out.println("can_start: " + can_start[0] + " " + can_start[1] + " " + can_start[2] + " " + can_start[3]);
+        System.out.println("which_axis: " + which_axis);
+        System.out.println();*/
     }
 
-    private synchronized void lock(boolean x, boolean y, boolean z) throws InterruptedException {
-        plock("lock");
-        boolean x_changed = false;
-        boolean y_changed = false;
-        boolean z_changed = false;
-
-        try {
-            if (x) {
-                while (!this.x) {
-                    wait();
-                }
-                this.x = false;
-                x_changed = true;
-            }
-
-            if (y) {
-                while (!this.y) {
-                    wait();
-                }
-                this.y = false;
-                y_changed = true;
-            }
-
-            if (z) {
-                while (!this.z) {
-                    wait();
-                }
-                this.z = false;
-                z_changed = true;
-            }
-
-            Thread current = Thread.currentThread();
-            if(current.isInterrupted()) {
-                throw new InterruptedException();
-            }
-
-        } catch(InterruptedException e){
-            if(x_changed){
-                this.x = true;
-            }
-            if(y_changed){
-                this.y = true;
-            }
-            if(z_changed){
-                this.z = true;
-            }
-
+    /*Takes care of synchronization - locks all the axes apart from the one that we want to rotate now.
+    Rotating is organized by the "fourth axis". Many threads can show() at the same time, but not if someone rotates.
+    Rotate() can only be done while other rotate() on the same axis*, but on different layer.*/
+    private synchronized void lock(int axis, int layer) throws InterruptedException {
+        if(Thread.currentThread().isInterrupted()){
             throw new InterruptedException();
         }
 
-        plock("po lock");
+        plock("lock");
+        /*I have one stage of waiting for threads who have just came to do some work, but need to wait, because some threads
+        are already working on this thread and someone may be waiting on other axis - we don't want to starve
+        threads working on other axes.*/
+        try {
+            while(can_start[axis]){
+                wait();
+            }
+        } catch (InterruptedException e) {
+            throw new InterruptedException();
+        }
+
+        waiting[axis]++;
+        /*Second stage of waiting is until the thread can start his work, because no one works on other axes.
+        Then a thread can be stopped only if someone uses the same layer.*/
+        try {
+            while(!can_start[axis]){
+                if(which_axis == -1){
+                    which_axis = axis;
+                    can_start[axis] = true;
+                    notifyAll();
+                    break;
+                }
+                wait();
+            }
+        } catch (InterruptedException e) {
+            if(can_start[axis] && waiting[axis] + working[axis] == 1){  //between decreasing waiting and increasing working nothing can happen
+                which_axis = -1;
+                can_start[axis] = false;
+                notifyAll();
+            }
+            throw new InterruptedException();
+        } finally {
+            waiting[axis]--;
+            if(waiting[axis] == 0){
+                can_start[axis] = false;
+                notifyAll();
+            }
+        }
+
+        working[axis]++;
+        try {
+            while(layers.get(axis).contains(layer)){
+                wait();
+            }
+        } catch (InterruptedException e) {
+            if((can_start[axis] && waiting[axis] + working[axis] == 1) || (!can_start[axis] && working[axis] == 1)){  //between decreasing waiting and increasing working nothing can happen
+                which_axis = -1;
+                notifyAll();
+            }
+            working[axis]--;
+            throw new InterruptedException();
+        }
+
+        layers.get(axis).add(layer);
+
+        plock("after lock");
     }
 
-    private synchronized void unlock(boolean x, boolean y, boolean z) throws InterruptedException {
+    private synchronized void unlock(int axis, int layer) throws InterruptedException {
         plock("unlock");
-        if(x){
-            this.x = true;
-        }
-        if(y){
-            this.y = true;
-        }
-        if(z){
-            this.z = true;
-        }
 
+        working[axis]--;
+        layers.get(axis).remove(layer);
         notifyAll();
 
-        Thread current = Thread.currentThread();
-        if(current.isInterrupted()){
+        if((can_start[axis] && waiting[axis] + working[axis] == 0) || (!can_start[axis] && working[axis] == 0)){  //between decreasing waiting and increasing working nothing can happen
+            which_axis = -1;
+        }
+        notifyAll();
+
+        if(Thread.currentThread().isInterrupted()){
             throw new InterruptedException();
         }
 
-        plock("po unlock");
+        plock("after unlock");
     }
 }
