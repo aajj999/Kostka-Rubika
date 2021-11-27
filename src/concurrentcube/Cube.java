@@ -20,6 +20,11 @@ public class Cube {
     private final Runnable beforeShowing;
     private final Runnable afterShowing;
 
+    private final int axis_amount = 4;
+    private Axis[] axis = new Axis[axis_amount];
+    private int which_axis = 0;
+    private boolean any_axis_working = false;
+
     public Cube(int size,
                 BiConsumer<Integer, Integer> beforeRotation,
                 BiConsumer<Integer, Integer> afterRotation,
@@ -42,6 +47,11 @@ public class Cube {
                 Errors.my_error(e);
             }
         }
+
+        for(int i = 0; i < axis_amount; ++ i){
+            axis[i] = new Axis(size);
+        }
+        any_axis_working = false;
     }
 
     public void rotate(int side, int layer) throws InterruptedException {
@@ -287,13 +297,23 @@ public class Cube {
         //System.out.println("");
     }
 
-    private synchronized void lock(boolean x, boolean y, boolean z) throws InterruptedException {
+    private void lock(boolean x, boolean y, boolean z) throws InterruptedException {
+        int x = 0;
+        int layer = 0;
+
+        if(!any_axis_working){
+            axis[x].start_axis();
+            axis[x].before(layer, true);
+        if(axis[x].if_finished()){
+            axis[(x + 1) % axis_amount].start_axis();
+        }
         plock("lock");
         boolean x_changed = false;
         boolean y_changed = false;
         boolean z_changed = false;
 
         try {
+
             if (x) {
                 while (!this.x) {
                     wait();
